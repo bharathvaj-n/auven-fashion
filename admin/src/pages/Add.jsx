@@ -20,6 +20,28 @@ const Add = ({token}) => {
  const [subCategory, setSubCategory] = useState('Topwear');
  const [bestseller, setBestseller] = useState(false);
  const [sizes, setSizes] = useState([]);
+ const [inventory, setInventory] = useState({});
+
+ const handleSizeToggle = (size) => {
+   setSizes(prev => {
+     if (prev.includes(size)) {
+       const newSizes = prev.filter(item => item !== size);
+       setInventory(prevInv => {
+         const newInv = {...prevInv};
+         delete newInv[size];
+         return newInv;
+       });
+       return newSizes;
+     } else {
+       setInventory(prevInv => ({...prevInv, [size]: 0}));
+       return [...prev, size];
+     }
+   });
+ }
+
+ const handleInventoryChange = (size, qty) => {
+   setInventory(prev => ({...prev, [size]: Math.max(0, parseInt(qty) || 0)}));
+ }
 
  const onsubmitHandler = async (e) => {
    e.preventDefault();
@@ -35,6 +57,9 @@ const Add = ({token}) => {
    formData.append("subcategory",subCategory)
    formData.append("bestseller",bestseller)
    formData.append("sizes",JSON.stringify(sizes))
+   
+   const inventoryArray = sizes.map(size => ({ size, quantity: inventory[size] || 0 }));
+   formData.append("inventory", JSON.stringify(inventoryArray));
 
   image1 && formData.append("image1",image1)
   image2 && formData.append("image2",image2)
@@ -52,6 +77,8 @@ const Add = ({token}) => {
     setImage3(false)
     setImage4(false)
     setPrice('')
+    setSizes([])
+    setInventory({})
   } else {
     toast.error(response.data.message)
   }
@@ -135,31 +162,50 @@ const Add = ({token}) => {
       <p className='mb-2' >Product Sizes</p>
 
       <div className='flex gap-3' >
-        <div onClick={() => setSizes(prev => prev.includes('S') ? prev.filter(item => item !== 'S') : [...prev, 'S'] )}>
+        <div onClick={() => handleSizeToggle('S')}>
           <p className={`${sizes.includes('S') ? 'bg-pink-100' : 'bg-slate-200'} px-3 py-1 cursor-pointer`} >S</p>
         </div>
 
-        <div onClick={() => setSizes(prev => prev.includes('M') ? prev.filter(item => item !== 'M') : [...prev, 'M'] )} >
+        <div onClick={() => handleSizeToggle('M')} >
           <p className={`${sizes.includes('M') ? 'bg-pink-100' : 'bg-slate-200'} px-3 py-1 cursor-pointer`} >M</p>
         </div>
         
-        <div onClick={() => setSizes(prev => prev.includes('L') ? prev.filter(item => item !== 'L') : [...prev, 'L'])} >
+        <div onClick={() => handleSizeToggle('L')} >
           <p className={`${sizes.includes('L') ? 'bg-pink-100' : 'bg-slate-200'} px-3 py-1 cursor-pointer`} >L</p>
         </div>        
 
-        <div onClick={() => setSizes(prev => prev.includes('XL') ? prev.filter(item => item !== 'XL') : [...prev, 'XL'] )} >
+        <div onClick={() => handleSizeToggle('XL')} >
           <p className={`${sizes.includes('XL') ? 'bg-pink-100' : 'bg-slate-200'} px-3 py-1 cursor-pointer`} >XL</p>
         </div>
 
-        <div onClick={() => setSizes(prev => prev.includes('XXL') ? prev.filter(item => item !== 'XXL') : [...prev, 'XXL'])} >
+        <div onClick={() => handleSizeToggle('XXL')} >
           <p className={`${sizes.includes('XXL') ? 'bg-pink-100' : 'bg-slate-200'} px-3 py-1 cursor-pointer`}>XXL</p>
         </div>
       </div>
 
+      {sizes.length > 0 && (
+        <div className='mt-4'>
+          <p className='mb-2'>Stock Quantity</p>
+          <div className='flex flex-col gap-2'>
+            {sizes.map(size => (
+              <div key={size} className='flex items-center gap-4'>
+                <span className='w-8 font-medium'>{size}</span>
+                <input 
+                  type="number" 
+                  min="0"
+                  className='border px-2 py-1 w-24' 
+                  value={inventory[size] !== undefined ? inventory[size] : 0}
+                  onChange={(e) => handleInventoryChange(size, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
 
-
-    <div className='flex gap-2'>
+    <div className='flex gap-2 mt-4'>
       <input onChange={() => setBestseller(prev => !prev  )} checked={bestseller} type="checkbox" name="" id="bestseller" />
       <label className='cursor-pointer' htmlFor="bestseller">Add to Bestseller</label>
     </div>

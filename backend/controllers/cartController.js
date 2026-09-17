@@ -1,24 +1,45 @@
 import userModel from "../models/userModel.js"
+import productModel from "../models/productModel.js"
 
 
 // add products to user cart
 const addToCart = async (req,res) => {
    try {
-   const { userId, itemId, size } = req.body
+   const { userId, itemId, size, quantity = 1 } = req.body
+   
+   if (quantity < 1 || isNaN(quantity)) {
+     return res.json({success: false, message: "Invalid quantity"})
+   }
+
    const userData = await userModel.findById(userId)
    let cartData = await userData.cartData;
+   
+   let currentQuantity = 0;
+   if(cartData[itemId] && cartData[itemId][size]) {
+       currentQuantity = cartData[itemId][size];
+   }
+   const newQuantity = currentQuantity + quantity;
+
+   const product = await productModel.findById(itemId);
+   if (!product) {
+       return res.json({success: false, message: "Product not found"});
+   }
+   if (!product.inventory || product.inventory.length === 0) {
+       return res.json({success: false, message: "Stock information is unavailable."});
+   }
+   const inventoryItem = product.inventory.find(item => item.size === size);
+   if (!inventoryItem) {
+       return res.json({success: false, message: "Size is out of stock."});
+   }
+   if (newQuantity > inventoryItem.quantity) {
+       return res.json({success: false, message: `Only ${inventoryItem.quantity} items are available for size ${size}.`});
+   }
 
    if(cartData[itemId]) {
-    if(cartData[itemId][size]) {
-        cartData[itemId][size] += 1
-    }
-    else {
-      cartData[itemId][size] = 1
-    }
-   
+    cartData[itemId][size] = newQuantity;
    }else {
     cartData[itemId] = {}
-    cartData[itemId][size] = 1
+    cartData[itemId][size] = newQuantity;
    }
 
    await userModel.findByIdAndUpdate(userId, {cartData})
@@ -38,6 +59,21 @@ const updateCart = async (req,res) => {
     const { userId, itemId, size, quantity } = req.body
     const userData = await userModel.findById(userId)
     let cartData = await userData.cartData;
+
+    const product = await productModel.findById(itemId);
+    if (!product) {
+        return res.json({success: false, message: "Product not found"});
+    }
+    if (!product.inventory || product.inventory.length === 0) {
+        return res.json({success: false, message: "Stock information is unavailable."});
+    }
+    const inventoryItem = product.inventory.find(item => item.size === size);
+    if (!inventoryItem) {
+        return res.json({success: false, message: "Size is out of stock."});
+    }
+    if (quantity > inventoryItem.quantity) {
+        return res.json({success: false, message: `Only ${inventoryItem.quantity} items are available for size ${size}.`});
+    }
 
     cartData[itemId][size] = quantity
 

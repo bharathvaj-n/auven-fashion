@@ -8,6 +8,13 @@ const productSchema = mongoose.Schema({
     category: { type: String, required: true},
     subcategory: { type: String, required: true},
     sizes: {type: Array, required: true},
+    inventory: {
+        type: [{
+            size: { type: String, required: true },
+            quantity: { type: Number, required: true, min: 0 }
+        }],
+        default: []
+    },
     bestseller: {type: Boolean},
     date: { type: Number, required: true},
 })

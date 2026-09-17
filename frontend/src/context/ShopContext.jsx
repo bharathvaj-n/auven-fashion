@@ -19,7 +19,7 @@ const ShopContextProvider = (props) => {
     const [token, setToken] = useState('')
     const navigate = useNavigate();
 
-    const addToCart = async (itemId,size) => {
+    const addToCart = async (itemId, size, quantity = 1) => {
         if(!size) {
             toast.error('Select Product Size');
             return;
@@ -28,20 +28,20 @@ const ShopContextProvider = (props) => {
 
         if(cartData[itemId]){
             if (cartData[itemId][size]) {
-                cartData[itemId][size] += 1;
+                cartData[itemId][size] += quantity;
             }
             else {
-                cartData[itemId][size] = 1;
+                cartData[itemId][size] = quantity;
             }
         }else{
         cartData[itemId] = {};
-        cartData[itemId][size] = 1;
+        cartData[itemId][size] = quantity;
         }
         setCartItems(cartData);
 
     if(token) {
         try {    
-        await axios.post(backendUrl + '/api/cart/add', {itemId,size}, {headers:{token}})
+        await axios.post(backendUrl + '/api/cart/add', {itemId, size, quantity}, {headers:{token}})
         toast.success('Item added to cart')
         } catch (error) {
             console.log(error)
