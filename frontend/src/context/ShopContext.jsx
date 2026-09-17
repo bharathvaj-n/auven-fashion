@@ -17,6 +17,8 @@ const ShopContextProvider = (props) => {
     const [cartItems, setCartItems] = useState({});
     const [products, setProducts] = useState([]);
     const [token, setToken] = useState('')
+    const [standaloneBasePrice, setStandaloneBasePrice] = useState(999);
+    const [standaloneObjectPrice, setStandaloneObjectPrice] = useState(100);
     const navigate = useNavigate();
 
     const addToCart = async (itemId, size, quantity = 1) => {
@@ -216,6 +218,16 @@ const ShopContextProvider = (props) => {
    const getCartAmount = () => {
        let totalAmount = 0;
        for(const items in cartItems){
+           if (items === 'custom_standalone') {
+               for (const item in cartItems[items]) {
+                   if (typeof cartItems[items][item] === 'object' && cartItems[items][item].quantity > 0) {
+                       const itemPrice = cartItems[items][item].price || (standaloneBasePrice + (cartItems[items][item].customization?.objects?.length || 0) * standaloneObjectPrice);
+                       totalAmount += itemPrice * cartItems[items][item].quantity;
+                   }
+               }
+               continue;
+           }
+
            let itemInfo = products.find((product) => product._id === items);
            if (!itemInfo) continue;
            
@@ -233,6 +245,128 @@ const ShopContextProvider = (props) => {
        return totalAmount;
    }
 
+   const addStandaloneCustomizedToCart = async (colour, customization, quantity = 1) => {
+        let cartData = structuredClone(cartItems);
+        
+        const customString = JSON.stringify(customization);
+        let hash = 0;
+        for (let i = 0; i < customString.length; i++) {
+            const char = customString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        const customKey = `custom_${Math.abs(hash)}`;
+
+        const itemId = 'custom_standalone';
+        const numObjects = customization.objects ? customization.objects.length : 0;
+        const calculatedPrice = standaloneBasePrice + (numObjects * standaloneObjectPrice);
+
+        if(cartData[itemId]){
+            if (cartData[itemId][customKey]) {
+                cartData[itemId][customKey].quantity += quantity;
+                cartData[itemId][customKey].price = calculatedPrice;
+            }
+            else {
+                cartData[itemId][customKey] = {
+                    quantity,
+                    colour,
+                    isCustomized: true,
+                    customization,
+                    price: calculatedPrice
+                };
+            }
+        }else{
+            cartData[itemId] = {};
+            cartData[itemId][customKey] = {
+                quantity,
+                colour,
+                isCustomized: true,
+                customization,
+                price: calculatedPrice
+            };
+        }
+        setCartItems(cartData);
+
+        if(token) {
+            try {    
+                await axios.post(backendUrl + '/api/cart/addStandaloneCustomized', {
+                    customKey, 
+                    colour, 
+                    customization, 
+                    quantity
+                }, {headers:{token}})
+                toast.success('Customized item added to cart')
+            } catch (error) {
+                console.log(error)
+                toast.error(error.message)
+            }
+        } else {
+             toast.success('Customized item added to cart (Login to save)')
+        }
+   }
+
+   const updateStandaloneCustomizedCartItem = async (oldCustomKey, colour, customization, quantity = 1) => {
+        let cartData = structuredClone(cartItems);
+        
+        const customString = JSON.stringify(customization);
+        let hash = 0;
+        for (let i = 0; i < customString.length; i++) {
+            const char = customString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        const newCustomKey = `custom_${Math.abs(hash)}`;
+        const itemId = 'custom_standalone';
+        const numObjects = customization.objects ? customization.objects.length : 0;
+        const calculatedPrice = standaloneBasePrice + (numObjects * standaloneObjectPrice);
+
+        if (cartData[itemId] && cartData[itemId][oldCustomKey]) {
+            delete cartData[itemId][oldCustomKey];
+        }
+
+        if(cartData[itemId]){
+            if (cartData[itemId][newCustomKey]) {
+                cartData[itemId][newCustomKey].quantity = quantity;
+                cartData[itemId][newCustomKey].price = calculatedPrice;
+            }
+            else {
+                cartData[itemId][newCustomKey] = {
+                    quantity,
+                    colour,
+                    isCustomized: true,
+                    customization,
+                    price: calculatedPrice
+                };
+            }
+        }else{
+            cartData[itemId] = {};
+            cartData[itemId][newCustomKey] = {
+                quantity,
+                colour,
+                isCustomized: true,
+                customization,
+                price: calculatedPrice
+            };
+        }
+        setCartItems(cartData);
+
+        if(token) {
+            try {    
+                await axios.post(backendUrl + '/api/cart/updateStandaloneCustomized', {
+                    oldCustomKey,
+                    newCustomKey, 
+                    colour, 
+                    customization, 
+                    quantity
+                }, {headers:{token}})
+                toast.success('Cart updated')
+            } catch (error) {
+                console.log(error)
+                toast.error(error.message)
+            }
+        }
+   }
+
    const getProductData = async () => {
     try {
       const response = await axios.get(backendUrl + '/api/product/list')
@@ -245,6 +379,22 @@ const ShopContextProvider = (props) => {
     } catch (error) {
         console.log(error);
         toast.error(error.message)
+    }
+   }
+
+   const getConfigData = async () => {
+    try {
+        const response = await axios.get(backendUrl + '/api/config/constants');
+        if (response.data.success && response.data.constants) {
+            if (response.data.constants.STANDALONE_CUSTOM_BASE_PRICE) {
+                setStandaloneBasePrice(response.data.constants.STANDALONE_CUSTOM_BASE_PRICE);
+            }
+            if (response.data.constants.STANDALONE_CUSTOM_OBJECT_PRICE) {
+                setStandaloneObjectPrice(response.data.constants.STANDALONE_CUSTOM_OBJECT_PRICE);
+            }
+        }
+    } catch (error) {
+        console.log(error);
     }
    }
 
@@ -262,6 +412,7 @@ const ShopContextProvider = (props) => {
   
    useEffect(() => {
      getProductData()
+     getConfigData()
    },[])
 
    useEffect(() => {
@@ -277,7 +428,8 @@ const ShopContextProvider = (props) => {
         cartItems, addToCart, addCustomizedToCart, updateCustomizedCartItem, setCartItems,
         getCartCount, updateQuantity,
         getCartAmount, navigate, backendUrl,
-        setToken, token
+        setToken, token,
+        standaloneBasePrice, standaloneObjectPrice, addStandaloneCustomizedToCart, updateStandaloneCustomizedCartItem
     }
 
     return (

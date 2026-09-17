@@ -1,6 +1,7 @@
 import userModel from "../models/userModel.js"
 import productModel from "../models/productModel.js"
 import designModel from "../models/designModel.js"
+import { STANDALONE_CUSTOM_BASE_PRICE, STANDALONE_CUSTOM_OBJECT_PRICE } from "../config/constants.js"
 
 // Helper to calculate total used quantity for a specific variant across the cart
 const getCartVariantUsage = (cartData, itemId, targetSize, targetColour, skipCustomKey = null) => {
@@ -89,7 +90,11 @@ const updateCart = async (req,res) => {
 
     const isCustomKey = size && size.startsWith('custom_');
 
-    if (isCustomKey) {
+    if (itemId === 'custom_standalone') {
+        if (cartData[itemId] && cartData[itemId][size]) {
+            cartData[itemId][size].quantity = quantity;
+        }
+    } else if (isCustomKey) {
         const cartItem = cartData[itemId] && cartData[itemId][size];
         if (cartItem) {
             const itemColour = cartItem.colour || '';
@@ -160,4 +165,101 @@ const getUserCart = async (req,res) => {
 }
 
 
-export { addToCart, updateCart, getUserCart }
+// add standalone customized t-shirt
+const addStandaloneCustomized = async (req, res) => {
+    try {
+        const { userId, customKey, colour, customization, quantity = 1 } = req.body;
+        
+        if (quantity < 1 || isNaN(quantity)) {
+            return res.json({ success: false, message: "Invalid quantity" });
+        }
+        
+        // Basic validation
+        if (!customization || !customization.objects || customization.objects.length === 0) {
+            return res.json({ success: false, message: "Customization must have at least one object." });
+        }
+
+        const userData = await userModel.findById(userId);
+        let cartData = await userData.cartData;
+        
+        if (!cartData['custom_standalone']) {
+            cartData['custom_standalone'] = {};
+        }
+
+        const numObjects = customization.objects.length;
+        const calculatedPrice = STANDALONE_CUSTOM_BASE_PRICE + (numObjects * STANDALONE_CUSTOM_OBJECT_PRICE);
+
+        if (cartData['custom_standalone'][customKey]) {
+            cartData['custom_standalone'][customKey].quantity += quantity;
+            cartData['custom_standalone'][customKey].price = calculatedPrice;
+        } else {
+            cartData['custom_standalone'][customKey] = {
+                quantity,
+                colour,
+                isCustomized: true,
+                customization,
+                price: calculatedPrice
+            };
+        }
+
+        await userModel.findByIdAndUpdate(userId, { cartData });
+        res.json({ success: true, message: "Customized T-Shirt Added To Cart" });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// update standalone customized t-shirt
+const updateStandaloneCustomized = async (req, res) => {
+    try {
+        const { userId, oldCustomKey, newCustomKey, colour, customization, quantity = 1 } = req.body;
+
+        if (quantity < 1 || isNaN(quantity)) {
+            return res.json({ success: false, message: "Invalid quantity" });
+        }
+        
+        if (!customization || !customization.objects || customization.objects.length === 0) {
+            return res.json({ success: false, message: "Customization must have at least one object." });
+        }
+
+        const userData = await userModel.findById(userId);
+        let cartData = await userData.cartData;
+        
+        if (!cartData['custom_standalone']) {
+            cartData['custom_standalone'] = {};
+        }
+
+        // Remove old key locally
+        if (cartData['custom_standalone'][oldCustomKey]) {
+            delete cartData['custom_standalone'][oldCustomKey];
+        }
+
+        const numObjects = customization.objects.length;
+        const calculatedPrice = STANDALONE_CUSTOM_BASE_PRICE + (numObjects * STANDALONE_CUSTOM_OBJECT_PRICE);
+
+        if (cartData['custom_standalone'][newCustomKey]) {
+            cartData['custom_standalone'][newCustomKey].quantity = quantity;
+            cartData['custom_standalone'][newCustomKey].price = calculatedPrice;
+        } else {
+            cartData['custom_standalone'][newCustomKey] = {
+                quantity,
+                colour,
+                isCustomized: true,
+                customization,
+                price: calculatedPrice
+            };
+        }
+
+        await userModel.findByIdAndUpdate(userId, { cartData });
+        res.json({ success: true, message: "Customized Cart Updated" });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+
+export { addToCart, updateCart, getUserCart, addStandaloneCustomized, updateStandaloneCustomized }

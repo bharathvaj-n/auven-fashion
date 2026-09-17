@@ -8,6 +8,7 @@ import productRouter from './routes/productRoute.js'
 import cartRouter from './routes/cartRoute.js'
 import orderRouter from './routes/orderRoute.js'
 import customizerRouter from './routes/customizerRoute.js'
+import configRouter from './routes/configRoute.js'
 
 // App Config
 
@@ -28,6 +29,7 @@ app.use('/api/product', productRouter)
 app.use('/api/cart', cartRouter)
 app.use('/api/order', orderRouter)
 app.use('/api/customizer', customizerRouter)
+app.use('/api/config', configRouter)
 
 app.get('/', (req,res) => {
     res.send('API Working')

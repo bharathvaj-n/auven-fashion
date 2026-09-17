@@ -89,7 +89,7 @@ const CustomizedCartPreview = ({ customization }) => {
 };
 
 const Cart = () => {
-  const { products, currency, cartItems, updateQuantity, navigate } =
+  const { products, currency, cartItems, updateQuantity, navigate, standaloneBasePrice, standaloneObjectPrice } =
     useContext(ShopContext);
 
   const [cartData, setCartData] = useState([]);
@@ -131,9 +131,11 @@ const Cart = () => {
 
       <div>
         {cartData.map((item, index) => {
-          const productData = products.find(
-            (product) => product._id === item._id,
-          );
+          const productData = item._id === 'custom_standalone' 
+              ? { name: "Customized T-Shirt", price: item.price || (standaloneBasePrice + (item.customization?.objects?.length || 0) * standaloneObjectPrice), image: [] }
+              : products.find((product) => product._id === item._id);
+
+          if (!productData) return null;
 
           return (
             <div
@@ -189,7 +191,7 @@ const Cart = () => {
                         <button 
                             className="text-blue-600 hover:text-blue-800 underline mr-4"
                             onClick={() => {
-                                navigate(`/customizer/${item._id}`, { state: { editCartItem: item } });
+                                navigate(`/customizer`, { state: { editCartItem: item } });
                             }}
                             aria-label={`Edit customization for ${productData.name}`}
                         >

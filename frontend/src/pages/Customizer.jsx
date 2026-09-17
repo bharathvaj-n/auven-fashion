@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -7,7 +7,12 @@ import { assets } from '../assets/assets';
 
 const Customizer = () => {
     const navigate = useNavigate();
-    const { backendUrl, token } = useContext(ShopContext);
+    const location = useLocation();
+    const { backendUrl, token, addStandaloneCustomizedToCart, updateStandaloneCustomizedCartItem, standaloneBasePrice, standaloneObjectPrice, currency } = useContext(ShopContext);
+
+    const editCartItem = location.state?.editCartItem;
+    const [editMode, setEditMode] = useState(false);
+    const [oldCustomKey, setOldCustomKey] = useState(null);
 
     const [tshirtColor, setTshirtColor] = useState('White');
     const [textInput, setTextInput] = useState('');
@@ -18,6 +23,7 @@ const Customizer = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [libraryDesigns, setLibraryDesigns] = useState(null);
     const [isPreviewMode, setIsPreviewMode] = useState(false);
+    const [baseTemplateUrl, setBaseTemplateUrl] = useState(assets.blank_tshirt);
     
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
@@ -51,6 +57,22 @@ const Customizer = () => {
     };
 
     useEffect(() => {
+        if (editCartItem) {
+            setEditMode(true);
+            setOldCustomKey(editCartItem.sizeOrCustomKey);
+            setTshirtColor(editCartItem.colour || 'White');
+            if (editCartItem.customization) {
+                if (editCartItem.customization.baseTemplate) {
+                    setBaseTemplateUrl(editCartItem.customization.baseTemplate);
+                }
+                if (editCartItem.customization.objects) {
+                    setObjects(editCartItem.customization.objects);
+                }
+            }
+        }
+    }, [editCartItem]);
+
+    useEffect(() => {
         const observer = new ResizeObserver((entries) => {
             if (entries[0]) {
                 setCanvasScale(entries[0].contentRect.width / LOGICAL_CANVAS_SIZE);
@@ -74,12 +96,7 @@ const Customizer = () => {
 
     const handlePointerDown = (e, objId) => {
         e.stopPropagation();
-        if (selectedObjectId !== objId) {
-            setSelectedObjectId(objId);
-            setInteractionMode('none');
-        }
-        
-        if (interactionMode !== 'move') return;
+        setSelectedObjectId(objId);
         
         const obj = objects.find(o => o.id === objId);
         if (!obj) return;
@@ -371,8 +388,29 @@ const Customizer = () => {
         img.src = design.image;
     };
 
-    const handleAddToCart = () => {
-        toast.info("Cart Architecture Limitation: The standalone customizer currently requires a generic base-product architecture in the backend to be added to the cart. This will be implemented in a future phase.", { autoClose: 5000 });
+    const handleSetBaseTemplate = (design) => {
+        setBaseTemplateUrl(design.image);
+    };
+
+    const handleAddToCart = async () => {
+        if (objects.length === 0 && baseTemplateUrl === assets.blank_tshirt) {
+            toast.error("Please add at least one design, text, or select a base template.");
+            return;
+        }
+        
+        const customizationPayload = {
+            baseTemplate: baseTemplateUrl,
+            colour: tshirtColor,
+            objects: objects
+        };
+
+        if (editMode && oldCustomKey) {
+            await updateStandaloneCustomizedCartItem(oldCustomKey, tshirtColor, customizationPayload, editCartItem?.quantity || 1);
+            navigate('/cart');
+        } else {
+            await addStandaloneCustomizedToCart(tshirtColor, customizationPayload, 1);
+            navigate('/cart');
+        }
     };
 
     useEffect(() => {
@@ -410,6 +448,8 @@ const Customizer = () => {
     const activeColorHex = colors.find(c => c.name === tshirtColor)?.value || '#FFFFFF';
     const isColorDark = ['Black', 'Blue', 'Red', 'Green'].includes(tshirtColor);
 
+    const currentPrice = standaloneBasePrice + (objects.length * standaloneObjectPrice);
+
     return (
         <div className="py-10 border-t">
             <div className="text-center mb-10">
@@ -429,12 +469,25 @@ const Customizer = () => {
                         onClick={() => { if(!isPreviewMode) { setSelectedObjectId(null); setInteractionMode('none'); } }}
                     >
                         
-                        {/* Layer 1: Colored Background matching t-shirt */}
-                        <div className="absolute inset-0 z-0" style={{ backgroundColor: activeColorHex }}></div>
+                        {/* Layer 1: Colored Background matching t-shirt shape */}
+                        <div 
+                            className="absolute inset-0 z-0" 
+                            style={{ 
+                                backgroundColor: activeColorHex,
+                                maskImage: `url(${baseTemplateUrl})`,
+                                WebkitMaskImage: `url(${baseTemplateUrl})`,
+                                maskSize: 'contain',
+                                WebkitMaskSize: 'contain',
+                                maskPosition: 'center',
+                                WebkitMaskPosition: 'center',
+                                maskRepeat: 'no-repeat',
+                                WebkitMaskRepeat: 'no-repeat'
+                            }}
+                        ></div>
 
                         {/* Layer 2: T-shirt Base Template with Multiply blend mode to tint it */}
                         <img 
-                            src={assets.blank_tshirt} 
+                            src={baseTemplateUrl} 
                             alt="T-shirt Template"
                             className="absolute inset-0 w-full h-full object-contain z-10 mix-blend-multiply opacity-90"
                             style={{ pointerEvents: 'none' }}
@@ -459,7 +512,7 @@ const Customizer = () => {
                         <div className="absolute inset-0 z-30 pointer-events-none">
                             {objects.map(obj => {
                                 const isSelected = obj.id === selectedObjectId && !isPreviewMode;
-                                const isMoveMode = isSelected && interactionMode === 'move';
+                                const isMoveMode = isSelected;
                                 
                                 const pxLeft = obj.x * canvasScale;
                                 const pxTop = obj.y * canvasScale;
@@ -598,24 +651,18 @@ const Customizer = () => {
                             <h3 className="font-semibold mb-3 text-blue-900">Edit Selected Object</h3>
                             <div className="flex gap-2 mb-3">
                                 <button 
-                                    onClick={() => setInteractionMode('move')}
-                                    className={`flex-1 px-3 py-2 text-sm border ${interactionMode === 'move' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                                >
-                                    Move Object
-                                </button>
-                                <button 
                                     onClick={() => handleResizeObject(0.1)}
-                                    className="px-3 py-2 text-sm border bg-white text-gray-700 hover:bg-gray-50"
+                                    className="flex-1 px-3 py-2 text-sm border bg-white text-gray-700 hover:bg-gray-50"
                                     title="Increase Size"
                                 >
-                                    A+
+                                    Increase Size
                                 </button>
                                 <button 
                                     onClick={() => handleResizeObject(-0.1)}
-                                    className="px-3 py-2 text-sm border bg-white text-gray-700 hover:bg-gray-50"
+                                    className="flex-1 px-3 py-2 text-sm border bg-white text-gray-700 hover:bg-gray-50"
                                     title="Decrease Size"
                                 >
-                                    A-
+                                    Decrease Size
                                 </button>
                                 <button 
                                     onClick={handleDeleteObject}
@@ -625,9 +672,7 @@ const Customizer = () => {
                                     Delete
                                 </button>
                             </div>
-                            {interactionMode === 'move' && (
-                                <p className="text-xs text-blue-600 italic">Drag the object on the canvas to move it.</p>
-                            )}
+                            <p className="text-xs text-blue-600 italic">Drag the object on the canvas to move it.</p>
                         </div>
                     )}
 
@@ -667,11 +712,26 @@ const Customizer = () => {
                                     libraryDesigns.map(design => (
                                         <div 
                                             key={design._id} 
-                                            onClick={() => handleAddDesign(design)}
-                                            className="aspect-square border border-gray-200 rounded cursor-pointer hover:border-blue-500 p-1 flex items-center justify-center bg-gray-50"
+                                            className="group relative aspect-square border border-gray-200 rounded p-1 flex items-center justify-center bg-gray-50 overflow-hidden"
                                             title={design.name}
                                         >
                                             <img src={design.image} alt={design.name} className="w-full h-full object-contain pointer-events-none" />
+                                            
+                                            {/* Hover Overlay */}
+                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                                                <button 
+                                                    onClick={() => handleSetBaseTemplate(design)}
+                                                    className="w-full text-[10px] leading-tight bg-white text-black py-1 rounded hover:bg-gray-200"
+                                                >
+                                                    Set Base
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleAddDesign(design)}
+                                                    className="w-full text-[10px] leading-tight bg-blue-500 text-white py-1 rounded hover:bg-blue-600"
+                                                >
+                                                    Add Graphic
+                                                </button>
+                                            </div>
                                         </div>
                                     ))
                                 )}
@@ -680,11 +740,15 @@ const Customizer = () => {
                     </div>
                     
                     <div className="mt-auto pt-6 border-t">
+                        <div className="flex justify-between items-center mb-4 px-2">
+                            <span className="text-gray-600 font-medium">Total Price:</span>
+                            <span className="text-xl font-bold">{currency}{currentPrice}</span>
+                        </div>
                         <button 
                             onClick={handleAddToCart} 
                             className='w-full bg-black text-white px-8 py-4 font-medium hover:bg-gray-800 transition-colors'
                         >
-                            ADD TO CART
+                            {editMode ? 'UPDATE CART' : 'ADD TO CART'}
                         </button>
                     </div>
 

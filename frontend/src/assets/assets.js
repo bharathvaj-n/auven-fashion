@@ -55,7 +55,7 @@ import p_img51 from './p_img51.png'
 import p_img52 from './p_img52.png'
 
 
-import blank_tshirt from './blank_tshirt.jpg'
+import blank_tshirt from './blank_tshirt_transparent.png'
 
 import logo from './logo.png'
 import hero_img from './hero_img.png'

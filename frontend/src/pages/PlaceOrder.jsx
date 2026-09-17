@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useState, useEffect } from 'react'
 import Title from '../components/Title'
 import CartTotal from '../components/CartTotal'
 import { ShopContext } from '../context/ShopContext'
@@ -7,8 +7,13 @@ import { toast } from 'react-toastify'
 
 const PlaceOrder = () => {
 
-  const [method,setMothod] = useState('Cash On Delivery');
-  const {navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+  const [method,setMethod] = useState('Cash On Delivery');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const {navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products, standaloneBasePrice, standaloneObjectPrice } = useContext(ShopContext);
+
+  useEffect(() => {
+    // Only load if needed, no longer loading Razorpay
+  }, []);
 
   const [formData, setFormData] = useState({
     firstName:'',
@@ -34,6 +39,25 @@ const PlaceOrder = () => {
       let orderItems = []
 
       for(const items in cartItems){
+        if (items === 'custom_standalone') {
+          for (const item in cartItems[items]) {
+             if (cartItems[items][item].quantity > 0) {
+                 const customItem = cartItems[items][item];
+                 orderItems.push({
+                     _id: 'custom_standalone',
+                     name: 'Customized T-Shirt',
+                     price: customItem.price || (standaloneBasePrice + (customItem.customization?.objects?.length || 0) * standaloneObjectPrice),
+                     quantity: customItem.quantity,
+                     size: item,
+                     colour: customItem.colour,
+                     customization: customItem.customization,
+                     isCustomized: true
+                 });
+             }
+          }
+          continue;
+        }
+
         for(const item in cartItems[items]){
           if(cartItems[items][item] > 0){
              const itemInfo = structuredClone(products.find(product => product._id === items))
@@ -55,6 +79,7 @@ const PlaceOrder = () => {
       switch(method) {
         // Api calls for COD
        case 'Cash On Delivery':
+       setIsProcessing(true);
        const response = await axios.post(backendUrl + '/api/order/place', orderData, {headers: {token}}) 
        if(response.data.success){
         setCartItems({})
@@ -62,6 +87,22 @@ const PlaceOrder = () => {
        } else {
         toast.error(response.data.message)
        }
+       setIsProcessing(false);
+       break;
+
+
+       case 'Stripe':
+       setIsProcessing(true);
+       
+       const stripeOrderRes = await axios.post(backendUrl + '/api/order/stripe', orderData, {headers: {token}});
+       if (!stripeOrderRes.data.success) {
+         toast.error(stripeOrderRes.data.message || "Failed to create order");
+         setIsProcessing(false);
+         return;
+       }
+       
+       // Redirect to Stripe Checkout session
+       window.location.replace(stripeOrderRes.data.session_url);
        break;
 
         default:
@@ -70,6 +111,7 @@ const PlaceOrder = () => {
       }
      } catch (error) {
       console.log(error);
+      setIsProcessing(false);
      }
   }
 
@@ -110,14 +152,20 @@ const PlaceOrder = () => {
            <Title text1={'PAYMENT'} text2={'METHOD'}  />
            {/* ----------------- Payment Method Selection ---------------- */}
            <div className='flex gap-3 flex-col lg:flex-row'> 
-              <div onClick={() => setMothod('Cash On Delivery')}  className='flex items-center gap-3 border p-2 px-3 cursor-pointer' >
+              <div onClick={() => !isProcessing && setMethod('Cash On Delivery')}  className='flex items-center gap-3 border p-2 px-3 cursor-pointer' >
                 <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'Cash On Delivery' ? 'bg-green-400' : '' } `} ></p>
                 <p className='text-gray-500 text-sm font-medium mx-4' >CASH ON DELIVERY</p>
+              </div>
+              <div onClick={() => !isProcessing && setMethod('Stripe')}  className='flex items-center gap-3 border p-2 px-3 cursor-pointer' >
+                <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'Stripe' ? 'bg-green-400' : '' } `} ></p>
+                <p className='text-gray-500 text-sm font-medium mx-4' >STRIPE</p>
               </div>
            </div>
 
            <div className='w-full text-end mt-8 ' >
-              <button type='submit'  className='bg-black text-white px-16  py-3 ' >PLACE ORDER</button>
+              <button disabled={isProcessing} type='submit' className={`bg-black text-white px-16 py-3 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                 {isProcessing ? 'PROCESSING PAYMENT...' : (method === 'Stripe' ? 'PAY SECURELY' : 'PLACE ORDER')}
+              </button>
            </div>
         </div>
       </div>
