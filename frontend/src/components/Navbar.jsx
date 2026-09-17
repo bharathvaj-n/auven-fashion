@@ -32,6 +32,11 @@ const Navbar = () => {
           <hr className='w-2/4 border-none h-[1.5px] bg-gray-700 hidden ' />
         </NavLink>
           
+        <NavLink to='/customizer' className='flex flex-col items-center gap-1'>
+          <p>CUSTOMIZE T-SHIRT</p>
+          <hr className='w-2/4 border-none h-[1.5px] bg-gray-700 hidden ' />
+        </NavLink>
+          
         <NavLink to='/about' className='flex flex-col items-center gap-1'>
           <p>ABOUT</p>
           <hr className='w-2/4 border-none h-[1.5px] bg-gray-700 hidden ' />
@@ -80,6 +85,7 @@ const Navbar = () => {
               
               <NavLink  onClick={() => setvisible(false)}  className='py-2 pl-6 border' to='/'>HOME</NavLink>
               <NavLink  onClick={() => setvisible(false)}  className='py-2 pl-6 border' to='/collection'>COLLECTION</NavLink>
+              <NavLink  onClick={() => setvisible(false)}  className='py-2 pl-6 border' to='/customizer'>CUSTOMIZE T-SHIRT</NavLink>
               <NavLink  onClick={() => setvisible(false)}  className='py-2 pl-6 border' to='/about'>ABOUT</NavLink>
               <NavLink  onClick={() => setvisible(false)}  className='py-2 pl-6 border' to='/contact'>CONTACT</NavLink>
             </div>

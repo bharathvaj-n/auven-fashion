@@ -51,14 +51,135 @@ const ShopContextProvider = (props) => {
 
 }
 
+    const addCustomizedToCart = async (itemId, size, colour, customization, quantity = 1) => {
+        let cartData = structuredClone(cartItems);
+        
+        // Create deterministic hash for the customization string
+        const customString = JSON.stringify(customization);
+        // Simple hash function for string
+        let hash = 0;
+        for (let i = 0; i < customString.length; i++) {
+            const char = customString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        const customKey = `custom_${Math.abs(hash)}`;
+
+        if(cartData[itemId]){
+            if (cartData[itemId][customKey]) {
+                cartData[itemId][customKey].quantity += quantity;
+            }
+            else {
+                cartData[itemId][customKey] = {
+                    quantity,
+                    size,
+                    colour,
+                    isCustomized: true,
+                    customization
+                };
+            }
+        }else{
+            cartData[itemId] = {};
+            cartData[itemId][customKey] = {
+                quantity,
+                size,
+                colour,
+                isCustomized: true,
+                customization
+            };
+        }
+        setCartItems(cartData);
+
+        if(token) {
+            try {    
+                await axios.post(backendUrl + '/api/cart/addCustomized', {
+                    itemId, 
+                    customKey, 
+                    size, 
+                    colour, 
+                    customization, 
+                    quantity
+                }, {headers:{token}})
+            } catch (error) {
+                console.log(error)
+                toast.error(error.message)
+            }
+        }
+    }
+
+    const updateCustomizedCartItem = async (itemId, oldCustomKey, size, colour, customization, quantity = 1) => {
+        let cartData = structuredClone(cartItems);
+        
+        // Create deterministic hash for the customization string
+        const customString = JSON.stringify(customization);
+        let hash = 0;
+        for (let i = 0; i < customString.length; i++) {
+            const char = customString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        const newCustomKey = `custom_${Math.abs(hash)}`;
+
+        // Remove old key locally
+        if (cartData[itemId] && cartData[itemId][oldCustomKey]) {
+            delete cartData[itemId][oldCustomKey];
+        }
+
+        if(cartData[itemId]){
+            if (cartData[itemId][newCustomKey]) {
+                // If it coincidentally matches another exact configuration, update quantity
+                cartData[itemId][newCustomKey].quantity = quantity;
+            }
+            else {
+                cartData[itemId][newCustomKey] = {
+                    quantity,
+                    size,
+                    colour,
+                    isCustomized: true,
+                    customization
+                };
+            }
+        }else{
+            cartData[itemId] = {};
+            cartData[itemId][newCustomKey] = {
+                quantity,
+                size,
+                colour,
+                isCustomized: true,
+                customization
+            };
+        }
+        setCartItems(cartData);
+
+        if(token) {
+            try {    
+                await axios.post(backendUrl + '/api/cart/updateCustomized', {
+                    itemId, 
+                    oldCustomKey,
+                    newCustomKey, 
+                    size, 
+                    colour, 
+                    customization, 
+                    quantity
+                }, {headers:{token}})
+                toast.success('Cart updated')
+            } catch (error) {
+                console.log(error)
+                toast.error(error.message)
+            }
+        }
+    }
+
    
    const getCartCount = () => {
     let totalCount = 0;
     for(const items in cartItems){
         for(const item in cartItems[items]){
             try{
-                if(cartItems[items][item] > 0) {
-                totalCount += cartItems[items][item];
+                if (typeof cartItems[items][item] === 'number' && cartItems[items][item] > 0) {
+                    totalCount += cartItems[items][item];
+                } else if (typeof cartItems[items][item] === 'object' && cartItems[items][item].quantity > 0) {
+                    totalCount += cartItems[items][item].quantity;
                 }
             }catch(error){          
             }
@@ -69,36 +190,48 @@ const ShopContextProvider = (props) => {
      
 
 
-   const updateQuantity = async (itemId,size,quantity) => {
+   const updateQuantity = async (itemId, sizeOrCustomKey, quantity) => {
         let cartData = structuredClone(cartItems);
-        cartData[itemId][size] = quantity;
+        
+        if (typeof cartData[itemId][sizeOrCustomKey] === 'object') {
+            cartData[itemId][sizeOrCustomKey].quantity = quantity;
+        } else {
+            cartData[itemId][sizeOrCustomKey] = quantity;
+        }
+        
         setCartItems(cartData);
-    if(token) {
-       try {
-        await axios.post(backendUrl + '/api/cart/update', {itemId,size, quantity}, {headers: {token}})
-       } catch (error) {
-        console.log(error)
-        toast.error(error.message)
-       }
-    }
-    }
-
-
-   const getCartAmount =  () => {
-   let totalAmount = 0;
-   for(const items in cartItems){
-    let itemInfo = products.find((product) => product._id === items);
-    for(const item in cartItems[items]){
-        try{
-            if(cartItems[items][item] > 0){
-                totalAmount += itemInfo.price * cartItems[items][item]
-            }
-        }catch(error){
+        
+        if(token) {
+           try {
+               // Send sizeOrCustomKey as 'size' so the backend handles it generically
+               await axios.post(backendUrl + '/api/cart/update', {itemId, size: sizeOrCustomKey, quantity}, {headers: {token}})
+           } catch (error) {
+            console.log(error)
+            toast.error(error.message)
+           }
         }
     }
-   }   
-   return totalAmount;
-}
+
+
+   const getCartAmount = () => {
+       let totalAmount = 0;
+       for(const items in cartItems){
+           let itemInfo = products.find((product) => product._id === items);
+           if (!itemInfo) continue;
+           
+           for(const item in cartItems[items]){
+               try{
+                   if (typeof cartItems[items][item] === 'number' && cartItems[items][item] > 0) {
+                       totalAmount += itemInfo.price * cartItems[items][item]
+                   } else if (typeof cartItems[items][item] === 'object' && cartItems[items][item].quantity > 0) {
+                       totalAmount += itemInfo.price * cartItems[items][item].quantity;
+                   }
+               }catch(error){
+               }
+           }
+       }   
+       return totalAmount;
+   }
 
    const getProductData = async () => {
     try {
@@ -138,10 +271,13 @@ const ShopContextProvider = (props) => {
      }
    },[])
 
-    const value ={
-        products , currency , delivery_fee, search, setSearch, showSearch, setShowSearch,
-        cartItems, addToCart, setCartItems, getCartCount,updateQuantity, getCartAmount, navigate, backendUrl, 
-        setToken,token
+    const value = {
+        products, currency, delivery_fee,
+        search, setSearch, showSearch, setShowSearch,
+        cartItems, addToCart, addCustomizedToCart, updateCustomizedCartItem, setCartItems,
+        getCartCount, updateQuantity,
+        getCartAmount, navigate, backendUrl,
+        setToken, token
     }
 
     return (

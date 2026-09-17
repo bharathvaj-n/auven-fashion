@@ -72,15 +72,8 @@ const Edit = ({token}) => {
   const handleSizeToggle = (size) => {
     setSizes(prev => {
       if (prev.includes(size)) {
-        const newSizes = prev.filter(item => item !== size);
-        setInventory(prevInv => {
-          const newInv = {...prevInv};
-          delete newInv[size];
-          return newInv;
-        });
-        return newSizes;
+        return prev.filter(item => item !== size);
       } else {
-        setInventory(prevInv => ({...prevInv, [size]: 0}));
         return [...prev, size];
       }
     });
@@ -117,7 +110,10 @@ const Edit = ({token}) => {
       formData.append("bestseller", bestseller)
       formData.append("sizes", JSON.stringify(sizes))
 
-      const inventoryArray = sizes.map(size => ({ size, quantity: inventory[size] || 0 }));
+      const inventoryArray = [];
+      sizes.forEach(s => {
+          inventoryArray.push({ size: s, quantity: inventory[s] || 0 });
+      });
       formData.append("inventory", JSON.stringify(inventoryArray));
 
       const prevImages = [];
@@ -242,19 +238,26 @@ const Edit = ({token}) => {
         {sizes.length > 0 && (
           <div className='mt-4'>
             <p className='mb-2'>Stock Quantity</p>
-            <div className='flex flex-col gap-2'>
-              {sizes.map(size => (
-                <div key={size} className='flex items-center gap-4'>
-                  <span className='w-8 font-medium'>{size}</span>
-                  <input 
-                    type="number" 
-                    min="0"
-                    className='border px-2 py-1 w-24' 
-                    value={inventory[size] !== undefined ? inventory[size] : 0}
-                    onChange={(e) => handleInventoryChange(size, e.target.value)}
-                  />
+            <div className='flex flex-wrap gap-4'>
+              <div className='border p-3 min-w-[150px]'>
+                <p className='font-semibold mb-2 text-gray-400'>Standard</p>
+                <div className='flex flex-col gap-2'>
+                  {sizes.map(size => {
+                    return (
+                      <div key={size} className='flex items-center gap-4'>
+                        <span className='w-8 font-medium'>{size}</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          className='border px-2 py-1 w-20' 
+                          value={inventory[size] !== undefined ? inventory[size] : 0}
+                          onChange={(e) => handleInventoryChange(size, e.target.value)}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         )}

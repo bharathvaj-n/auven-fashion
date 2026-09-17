@@ -38,7 +38,7 @@ const Product = () => {
   
   const getStockForSize = (sizeName) => {
     if (!hasInventory) return 0;
-    const inv = productData.inventory.find(i => i.size === sizeName);
+    const inv = productData.inventory.find(i => i.size === sizeName && (i.colour || '') === '');
     return inv ? inv.quantity : 0;
   }
   
@@ -189,7 +189,9 @@ const Product = () => {
             </div>
         </div>
 
-        <button onClick={handleAddToCart} disabled={!hasInventory || productData.inventory.length === 0} className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed'>ADD TO CART</button>
+        <div className='flex flex-col sm:flex-row gap-4'>
+          <button onClick={handleAddToCart} disabled={!hasInventory || productData.inventory.length === 0} className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed'>ADD TO CART</button>
+        </div>
         <hr className='mt-8 sm:w-4/5'/>
         <div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>
            <p>100% Original product.</p>

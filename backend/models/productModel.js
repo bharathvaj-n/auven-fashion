@@ -11,6 +11,7 @@ const productSchema = mongoose.Schema({
     inventory: {
         type: [{
             size: { type: String, required: true },
+            colour: { type: String, default: '' },
             quantity: { type: Number, required: true, min: 0 }
         }],
         default: []

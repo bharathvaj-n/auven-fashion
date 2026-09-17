@@ -11,6 +11,9 @@ const authUser = async (req, res, next) => {
    try {
     
    const token_decode = jwt.verify(token, process.env.JWT_SECRET)
+   if (typeof req.body !== 'object' || req.body === null) {
+       req.body = {}
+   }
    req.body.userId = token_decode.id
    next()
    

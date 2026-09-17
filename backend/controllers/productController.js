@@ -2,6 +2,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import productModel from '../models/productModel.js'
 
 
+
+
 // function for add product
 const addProduct = async (req, res) => {
     try {        
@@ -28,11 +30,17 @@ const addProduct = async (req, res) => {
           const rawInventory = JSON.parse(inventory);
           parsedInventory = rawInventory.filter(item => 
             parsedSizes.includes(item.size) && Number.isInteger(item.quantity) && item.quantity >= 0
-          );
+          ).map(item => ({
+            size: item.size,
+            colour: typeof item.colour === 'string' ? item.colour : '',
+            quantity: item.quantity
+          }));
         } catch (e) {
           console.log("Error parsing inventory", e);
         }
       }
+
+
 
       const productData = {
         name,
@@ -139,11 +147,17 @@ const updateProduct = async (req, res) => {
         const rawInventory = JSON.parse(inventory);
         parsedInventory = rawInventory.filter(item => 
           parsedSizes.includes(item.size) && Number.isInteger(item.quantity) && item.quantity >= 0
-        );
+        ).map(item => ({
+          size: item.size,
+          colour: typeof item.colour === 'string' ? item.colour : '',
+          quantity: item.quantity
+        }));
       } catch (e) {
         console.log("Error parsing inventory", e);
       }
     }
+
+
 
     const updateData = {
       name,
