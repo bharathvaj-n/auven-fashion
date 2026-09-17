@@ -3,6 +3,8 @@ import { ShopContext } from "../context/ShopContext";
 import Title from "../components/Title";
 import { assets } from "../assets/assets";
 import CartTotal from "../components/CartTotal";
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const CustomizedCartPreview = ({ customization }) => {
     if (!customization || !customization.baseTemplate) {
@@ -89,10 +91,12 @@ const CustomizedCartPreview = ({ customization }) => {
 };
 
 const Cart = () => {
-  const { products, currency, cartItems, updateQuantity, navigate, standaloneBasePrice, standaloneObjectPrice } =
+  const { products, currency, cartItems, updateQuantity, navigate, standaloneBasePrice, standaloneObjectPrice, getCartAmount, backendUrl, token, appliedCoupon, setAppliedCoupon, setDiscountAmount } =
     useContext(ShopContext);
 
   const [cartData, setCartData] = useState([]);
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   useEffect(() => {
     if (products.length > 0) {
@@ -122,6 +126,58 @@ const Cart = () => {
       setCartData(tempData);
     }
   }, [cartItems, products]);
+
+  // Recalculate frontend discount dynamically when cart changes if a coupon is applied
+  useEffect(() => {
+     if (appliedCoupon && cartData.length > 0) {
+         const currentSubtotal = getCartAmount();
+         if (currentSubtotal < appliedCoupon.minimumOrderAmount) {
+             toast.warning(`Coupon ${appliedCoupon.code} removed. Minimum order value is ${currency} ${appliedCoupon.minimumOrderAmount}.`);
+             handleRemoveCoupon();
+         } else {
+             const calculatedDiscount = (currentSubtotal * appliedCoupon.discountPercentage) / 100;
+             const discount = Math.min(calculatedDiscount, appliedCoupon.maximumDiscountAmount);
+             setDiscountAmount(Math.round(discount));
+         }
+     } else if (cartData.length === 0) {
+         handleRemoveCoupon();
+     }
+  }, [cartData, appliedCoupon, getCartAmount, currency]);
+
+  const handleApplyCoupon = async () => {
+     if (!couponCodeInput.trim()) {
+         toast.error("Please enter a coupon code.");
+         return;
+     }
+     setIsApplyingCoupon(true);
+     try {
+         const currentSubtotal = getCartAmount();
+         const res = await axios.post(`${backendUrl}/api/coupon/validate`, {
+             code: couponCodeInput,
+             subtotal: currentSubtotal
+         }, { headers: { token } });
+
+         if (res.data.success) {
+             toast.success(res.data.message);
+             setAppliedCoupon(res.data.coupon);
+             setDiscountAmount(res.data.discountAmount);
+             setCouponCodeInput(''); // Clear input
+         } else {
+             toast.error(res.data.message);
+         }
+     } catch (error) {
+         console.log(error);
+         toast.error(error.message);
+     } finally {
+         setIsApplyingCoupon(false);
+     }
+  };
+
+  const handleRemoveCoupon = () => {
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+      setCouponCodeInput('');
+  };
 
   return (
     <div className="border-t pt-14">
@@ -241,11 +297,44 @@ const Cart = () => {
 
       <div className="flex justify-end my-20">
         <div className="w-full sm:w-[450px]">
+          
+          {/* Coupon Section */}
+          <div className="mb-8">
+             <p className="text-gray-600 font-medium mb-3">Have a coupon code?</p>
+             {appliedCoupon ? (
+                 <div className="flex items-center justify-between border border-green-500 bg-green-50 p-3">
+                     <div>
+                         <p className="text-green-700 font-semibold">{appliedCoupon.code} Applied!</p>
+                         <p className="text-xs text-green-600">{appliedCoupon.discountPercentage}% off up to {currency} {appliedCoupon.maximumDiscountAmount}</p>
+                     </div>
+                     <button onClick={handleRemoveCoupon} className="text-sm text-red-500 font-medium hover:underline">Remove</button>
+                 </div>
+             ) : (
+                 <div className="flex gap-2">
+                     <input 
+                         type="text" 
+                         value={couponCodeInput}
+                         onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                         placeholder="Enter coupon code"
+                         className="border border-gray-300 px-3 py-2 w-full uppercase focus:outline-none focus:border-gray-500"
+                     />
+                     <button 
+                         onClick={handleApplyCoupon}
+                         disabled={isApplyingCoupon || cartData.length === 0}
+                         className={`bg-black text-white px-6 py-2 transition-colors ${isApplyingCoupon ? 'opacity-50' : 'hover:bg-gray-800'}`}
+                     >
+                         {isApplyingCoupon ? 'APPLYING...' : 'APPLY'}
+                     </button>
+                 </div>
+             )}
+          </div>
+
           <CartTotal />
           <div className="w-full text-end">
             <button
               onClick={() => navigate("/place-order")}
-              className="bg-black text-white text-sm my-8 px-8 py-3"
+              disabled={cartData.length === 0}
+              className={`bg-black text-white text-sm my-8 px-8 py-3 ${cartData.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               PROCEED TO CHECKOUT
             </button>

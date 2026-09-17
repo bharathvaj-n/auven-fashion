@@ -1,15 +1,73 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import productModel from "../models/productModel.js";
+import couponModel from "../models/couponModel.js";
 import Stripe from 'stripe';
-import crypto from 'crypto';
+import dotenv from 'dotenv';
+dotenv.config({override: true});
 import { STANDALONE_CUSTOM_BASE_PRICE, STANDALONE_CUSTOM_OBJECT_PRICE } from "../config/constants.js";
 
-// Placing orders using COD Method
+const DELIVERY_FEE = 10;
 
+// Helper function to calculate authoritative order totals
+const calculateOrderTotals = async (items, couponCode) => {
+    let subtotal = 0;
+    
+    // Calculate authoritative subtotal
+    for (const item of items) {
+        let itemPrice = 0;
+        
+        if (item._id === 'custom_standalone') {
+            const numObjects = item.customization?.objects?.length || 0;
+            itemPrice = STANDALONE_CUSTOM_BASE_PRICE + (numObjects * STANDALONE_CUSTOM_OBJECT_PRICE);
+        } else {
+            const product = await productModel.findById(item._id);
+            if (!product) {
+                return { error: `Product ${item.name} not found.` };
+            }
+            itemPrice = product.price;
+        }
+        
+        subtotal += itemPrice * item.quantity;
+    }
+
+    let discountAmount = 0;
+    let appliedCoupon = null;
+
+    // Validate and apply coupon if provided
+    if (couponCode) {
+        const normalizedCode = couponCode.trim().toUpperCase();
+        const coupon = await couponModel.findOne({ code: normalizedCode });
+        
+        if (coupon && coupon.active && new Date() <= coupon.expiryDate && subtotal >= coupon.minimumOrderAmount) {
+            const calculatedDiscount = (subtotal * coupon.discountPercentage) / 100;
+            discountAmount = Math.min(calculatedDiscount, coupon.maximumDiscountAmount);
+            discountAmount = Math.round(discountAmount);
+            appliedCoupon = coupon.code;
+        }
+    }
+
+    const finalAmount = subtotal - discountAmount + DELIVERY_FEE;
+
+    return {
+        subtotal,
+        discountAmount,
+        finalAmount,
+        appliedCoupon,
+        deliveryFee: DELIVERY_FEE
+    };
+};
+
+// Placing orders using COD Method
 const placeOrder = async (req,res) => {
   try {
-   const{ userId, items, amount, address} = req.body;
+   const { userId, items, address, couponCode } = req.body;
+
+   // Calculate authoritative amounts securely
+   const totals = await calculateOrderTotals(items, couponCode);
+   if (totals.error) {
+       return res.json({ success: false, message: totals.error });
+   }
 
    // 1. Initial stock validation loop
    for (const item of items) {
@@ -52,11 +110,14 @@ const placeOrder = async (req,res) => {
     userId,
     items,
     address,
-    amount,
+    amount: totals.finalAmount,
+    couponCode: totals.appliedCoupon || '',
+    discountAmount: totals.discountAmount,
     paymentMethod: 'Cash On Delivery',
-    payment: 'false',
+    payment: false,
     date: Date.now()
    }
+
     const newOrder = new orderModel(orderData)
     await newOrder.save()
 
@@ -74,14 +135,18 @@ const placeOrderStripe = async (req,res) => {
     try {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        const { userId, items, address } = req.body;
+        const { userId, items, address, couponCode } = req.body;
         const { origin } = req.headers;
 
-        const delivery_fee = 10;
-        let totalAmount = 0;
+        // Calculate authoritative amounts securely
+        const totals = await calculateOrderTotals(items, couponCode);
+        if (totals.error) {
+            return res.json({ success: false, message: totals.error });
+        }
         
-        // Calculate authoritative amount and prepare line items
+        // Prepare line items
         const line_items = [];
+        let runningSubtotalCheck = 0;
         
         for (const item of items) {
             let itemName = item.name;
@@ -93,46 +158,54 @@ const placeOrderStripe = async (req,res) => {
                 itemName = "Customized T-Shirt (Size: " + item.size + ")";
             } else {
                 const product = await productModel.findById(item._id);
-                if (!product) {
-                    return res.json({success: false, message: `Product ${item.name} not found.`});
-                }
                 itemPrice = product.price;
                 itemName = item.name + " (Size: " + item.size + ")";
             }
             
-            totalAmount += itemPrice * item.quantity;
+            runningSubtotalCheck += itemPrice * item.quantity;
             
             line_items.push({
                 price_data: {
                     currency: 'inr',
-                    product_data: {
-                        name: itemName,
-                    },
+                    product_data: { name: itemName },
                     unit_amount: itemPrice * 100, // paise
                 },
                 quantity: item.quantity,
             });
         }
         
-        totalAmount += delivery_fee;
-        
-        // Add delivery fee as a line item
+        // Add delivery fee
         line_items.push({
             price_data: {
                 currency: 'inr',
-                product_data: {
-                    name: 'Delivery Fee',
-                },
-                unit_amount: delivery_fee * 100,
+                product_data: { name: 'Delivery Fee' },
+                unit_amount: totals.deliveryFee * 100,
             },
             quantity: 1,
         });
+
+        // Add discount as a negative line item (using Stripe coupon or just a generic negative line if supported, but Stripe doesn't allow negative line items natively via `unit_amount` without creating a Stripe Coupon.
+        // Wait, Stripe does not allow negative `unit_amount` in line_items.
+        // The correct way in Stripe Checkout without creating a Stripe-side coupon is to apply discounts via `discounts` array if we create a Stripe coupon dynamically, OR we proportionally reduce the price of items, OR create a Stripe Coupon on the fly.
+        // Let's create a dynamic Stripe Coupon on the fly.
+        let stripeDiscounts = undefined;
+        if (totals.discountAmount > 0) {
+            const stripeCoupon = await stripe.coupons.create({
+                amount_off: totals.discountAmount * 100,
+                currency: 'inr',
+                name: totals.appliedCoupon ? `Coupon: ${totals.appliedCoupon}` : 'Discount',
+                duration: 'once',
+            });
+            stripeDiscounts = [{ coupon: stripeCoupon.id }];
+        }
         
         const orderData = {
             userId,
             items,
             address,
-            amount: totalAmount,
+            amount: totals.finalAmount,
+            couponCode: totals.appliedCoupon || '',
+            discountAmount: totals.discountAmount,
             paymentMethod: 'Stripe',
             payment: false,
             date: Date.now()
@@ -146,6 +219,7 @@ const placeOrderStripe = async (req,res) => {
             cancel_url: `${origin}/verify?success=false&orderId=${newOrder._id}`,
             line_items,
             mode: 'payment',
+            discounts: stripeDiscounts
         });
         
         res.json({success: true, session_url: session.url});

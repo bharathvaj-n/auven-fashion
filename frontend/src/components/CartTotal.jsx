@@ -4,7 +4,7 @@ import Title from './Title';
 
 const CartTotal = () => {
 
-  const {currency, delivery_fee, getCartAmount} = useContext(ShopContext);
+  const {currency, delivery_fee, getCartAmount, discountAmount, appliedCoupon} = useContext(ShopContext);
   
     return (
     <div className='w-full' >
@@ -18,6 +18,16 @@ const CartTotal = () => {
           <p>{currency} {getCartAmount()}.00</p>
         </div>
         
+        {appliedCoupon && (
+           <>
+             <hr />
+             <div className='flex justify-between text-green-600'>
+               <p>Discount ({appliedCoupon.code})</p>
+               <p>- {currency} {discountAmount}.00</p>
+             </div>
+           </>
+        )}
+
         <hr />
         <div className='flex justify-between'>
           <p>Shipping Fee</p>
@@ -27,7 +37,7 @@ const CartTotal = () => {
         
         <div className='flex justify-between'>
           <p>Total</p>
-          <b>{currency} {getCartAmount()  === 0 ? 0 : getCartAmount() + delivery_fee}.00</b>
+          <b>{currency} {getCartAmount() === 0 ? 0 : Math.max(0, getCartAmount() - discountAmount) + delivery_fee}.00</b>
         </div>
       </div>
     </div>

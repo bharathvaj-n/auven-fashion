@@ -10,6 +10,7 @@ import Cart from './pages/Cart'
 import Login from './pages/Login'
 import PlaceOrder from './pages/PlaceOrder'
 import Orders from './pages/Orders'
+import Profile from './pages/Profile'
 import Customizer from './pages/Customizer'
 import OrderSuccess from './pages/OrderSuccess'
 import Verify from './pages/Verify'
@@ -33,6 +34,7 @@ const App = () => {
       <Route path='/login' element={<Login />} />
       <Route path='/place-order' element={<PlaceOrder />} />
       <Route path='/orders' element={<Orders />} />
+      <Route path='/profile' element={<Profile />} />
       <Route path='/order-success' element={<OrderSuccess />} />
       <Route path='/verify' element={<Verify />} />
       <Route path='/customizer' element={<Customizer />} />

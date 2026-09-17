@@ -7,6 +7,14 @@ const Sidebar = () => {
       <div className="flex flex-col gap-4 pt-6 pl-[20%] text-[15px]">
         <NavLink
           className="flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-1"
+          to="/dashboard"
+        >
+          <img className="w-5 h-5 " src={assets.order_icon} alt="" />
+          <p className="hidden md:block">Dashboard</p>
+        </NavLink>
+
+        <NavLink
+          className="flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-1"
           to="/add"
         >
           <img className="w-5 h-5 " src={assets.add_icon} alt="" />
@@ -27,6 +35,30 @@ const Sidebar = () => {
         >
           <img className="w-5 h-5 " src={assets.order_icon} alt="" />
           <p className="hidden md:block">Orders</p>
+        </NavLink>
+
+        <NavLink
+          className="flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-1"
+          to="/customers"
+        >
+          <img className="w-5 h-5 " src={assets.order_icon} alt="" />
+          <p className="hidden md:block">Customers</p>
+        </NavLink>
+
+        <NavLink
+          className="flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-1"
+          to="/coupons"
+        >
+          <img className="w-5 h-5 " src={assets.order_icon} alt="" />
+          <p className="hidden md:block">Coupons</p>
+        </NavLink>
+
+        <NavLink
+          className="flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-1"
+          to="/homepage-content"
+        >
+          <img className="w-5 h-5 " src={assets.order_icon} alt="" />
+          <p className="hidden md:block">Homepage Content</p>
         </NavLink>
 
         <NavLink

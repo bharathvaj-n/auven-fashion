@@ -21,6 +21,13 @@ const ShopContextProvider = (props) => {
     const [standaloneObjectPrice, setStandaloneObjectPrice] = useState(100);
     const navigate = useNavigate();
 
+    // Coupon State
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [discountAmount, setDiscountAmount] = useState(0);
+
+    // Homepage Content State
+    const [homepageContent, setHomepageContent] = useState(null);
+
     const addToCart = async (itemId, size, quantity = 1) => {
         if(!size) {
             toast.error('Select Product Size');
@@ -410,9 +417,21 @@ const ShopContextProvider = (props) => {
        }
    }
   
+   const getHomepageContent = async () => {
+       try {
+           const response = await axios.get(backendUrl + '/api/homepage');
+           if (response.data.success) {
+               setHomepageContent(response.data);
+           }
+       } catch (error) {
+           console.log(error);
+       }
+   }
+
    useEffect(() => {
      getProductData()
      getConfigData()
+     getHomepageContent()
    },[])
 
    useEffect(() => {
@@ -429,7 +448,9 @@ const ShopContextProvider = (props) => {
         getCartCount, updateQuantity,
         getCartAmount, navigate, backendUrl,
         setToken, token,
-        standaloneBasePrice, standaloneObjectPrice, addStandaloneCustomizedToCart, updateStandaloneCustomizedCartItem
+        standaloneBasePrice, standaloneObjectPrice, addStandaloneCustomizedToCart, updateStandaloneCustomizedCartItem,
+        appliedCoupon, setAppliedCoupon, discountAmount, setDiscountAmount,
+        homepageContent
     }
 
     return (
