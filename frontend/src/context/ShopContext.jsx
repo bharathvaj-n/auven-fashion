@@ -50,7 +50,7 @@ const ShopContextProvider = (props) => {
 
     if(token) {
         try {    
-        await axios.post(backendUrl + '/api/cart/add', {itemId, size, quantity}, {headers:{token}})
+        await axios.post(backendUrl + '/api/cart/add', {itemId, size, quantity}, { headers: { Authorization: `Bearer ${token}` } })
         toast.success('Item added to cart')
         } catch (error) {
             console.log(error)
@@ -108,7 +108,7 @@ const ShopContextProvider = (props) => {
                     colour, 
                     customization, 
                     quantity
-                }, {headers:{token}})
+                }, { headers: { Authorization: `Bearer ${token}` } })
             } catch (error) {
                 console.log(error)
                 toast.error(error.message)
@@ -170,7 +170,7 @@ const ShopContextProvider = (props) => {
                     colour, 
                     customization, 
                     quantity
-                }, {headers:{token}})
+                }, { headers: { Authorization: `Bearer ${token}` } })
                 toast.success('Cart updated')
             } catch (error) {
                 console.log(error)
@@ -213,7 +213,7 @@ const ShopContextProvider = (props) => {
         if(token) {
            try {
                // Send sizeOrCustomKey as 'size' so the backend handles it generically
-               await axios.post(backendUrl + '/api/cart/update', {itemId, size: sizeOrCustomKey, quantity}, {headers: {token}})
+               await axios.post(backendUrl + '/api/cart/update', {itemId, size: sizeOrCustomKey, quantity}, { headers: { Authorization: `Bearer ${token}` } })
            } catch (error) {
             console.log(error)
             toast.error(error.message)
@@ -301,7 +301,7 @@ const ShopContextProvider = (props) => {
                     colour, 
                     customization, 
                     quantity
-                }, {headers:{token}})
+                }, { headers: { Authorization: `Bearer ${token}` } })
                 toast.success('Customized item added to cart')
             } catch (error) {
                 console.log(error)
@@ -365,7 +365,7 @@ const ShopContextProvider = (props) => {
                     colour, 
                     customization, 
                     quantity
-                }, {headers:{token}})
+                }, { headers: { Authorization: `Bearer ${token}` } })
                 toast.success('Cart updated')
             } catch (error) {
                 console.log(error)
@@ -407,7 +407,7 @@ const ShopContextProvider = (props) => {
 
    const getUserCart = async ( token ) => {
        try {   
-     const response = await axios.post(backendUrl + '/api/cart/get', {} , {headers: {token}})
+     const response = await axios.post(backendUrl + '/api/cart/get', {} , { headers: { Authorization: `Bearer ${token}` } })
       if(response.data.success){
        setCartItems(response.data.cartData)
       }
@@ -435,11 +435,24 @@ const ShopContextProvider = (props) => {
    },[])
 
    useEffect(() => {
-     if(!token && localStorage.getItem('token')){
-        setToken(localStorage.getItem('token'))
-        getUserCart(localStorage.getItem('token'))
-     }
-   },[])
+     import('../config/firebase.js').then(({ auth }) => {
+        import('firebase/auth').then(({ onAuthStateChanged }) => {
+            const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    const firebaseToken = await user.getIdToken();
+                    setToken(firebaseToken);
+                    localStorage.setItem('token', firebaseToken);
+                    getUserCart(firebaseToken);
+                } else {
+                    setToken('');
+                    localStorage.removeItem('token');
+                    setCartItems({});
+                }
+            });
+            return () => unsubscribe();
+        });
+     });
+   },[]);
 
     const value = {
         products, currency, delivery_fee,

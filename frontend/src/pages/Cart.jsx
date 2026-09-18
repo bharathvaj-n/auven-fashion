@@ -155,7 +155,7 @@ const Cart = () => {
          const res = await axios.post(`${backendUrl}/api/coupon/validate`, {
              code: couponCodeInput,
              subtotal: currentSubtotal
-         }, { headers: { token } });
+         }, { headers: { Authorization: `Bearer ${token}` } });
 
          if (res.data.success) {
              toast.success(res.data.message);

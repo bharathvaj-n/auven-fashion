@@ -22,7 +22,7 @@ const PlaceOrder = () => {
 
   const fetchAddresses = async () => {
     try {
-      const res = await axios.get(backendUrl + '/api/user/profile', { headers: { token } });
+      const res = await axios.get(backendUrl + '/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
       if (res.data.success && res.data.user.addresses) {
         setSavedAddresses(res.data.user.addresses);
         // Pre-select default address if available
@@ -122,7 +122,7 @@ const PlaceOrder = () => {
         // Api calls for COD
        case 'Cash On Delivery':
        setIsProcessing(true);
-       const response = await axios.post(backendUrl + '/api/order/place', orderData, {headers: {token}}) 
+       const response = await axios.post(backendUrl + '/api/order/place', orderData, { headers: { Authorization: `Bearer ${token}` } }) 
        if(response.data.success){
         setCartItems({})
         setAppliedCoupon(null)
@@ -138,7 +138,7 @@ const PlaceOrder = () => {
        case 'Stripe':
        setIsProcessing(true);
        
-       const stripeOrderRes = await axios.post(backendUrl + '/api/order/stripe', orderData, {headers: {token}});
+       const stripeOrderRes = await axios.post(backendUrl + '/api/order/stripe', orderData, { headers: { Authorization: `Bearer ${token}` } });
        if (!stripeOrderRes.data.success) {
          toast.error(stripeOrderRes.data.message || "Failed to create order");
          setIsProcessing(false);

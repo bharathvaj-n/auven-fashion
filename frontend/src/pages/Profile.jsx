@@ -34,7 +34,7 @@ const Profile = () => {
 
     const fetchProfile = async () => {
         try {
-            const res = await axios.get(backendUrl + '/api/user/profile', { headers: { token } });
+            const res = await axios.get(backendUrl + '/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
             if (res.data.success) {
                 setUser(res.data.user);
                 setProfileData({ name: res.data.user.name, email: res.data.user.email });
@@ -53,7 +53,7 @@ const Profile = () => {
         e.preventDefault();
         setIsUpdatingProfile(true);
         try {
-            const res = await axios.put(backendUrl + '/api/user/profile', profileData, { headers: { token } });
+            const res = await axios.put(backendUrl + '/api/user/profile', profileData, { headers: { Authorization: `Bearer ${token}` } });
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchProfile();
@@ -78,7 +78,7 @@ const Profile = () => {
             const res = await axios.put(backendUrl + '/api/user/change-password', {
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword
-            }, { headers: { token } });
+            }, { headers: { Authorization: `Bearer ${token}` } });
 
             if (res.data.success) {
                 toast.success(res.data.message);
@@ -112,9 +112,9 @@ const Profile = () => {
         try {
             let res;
             if (editingAddressId) {
-                res = await axios.put(`${backendUrl}/api/user/addresses/${editingAddressId}`, addressData, { headers: { token } });
+                res = await axios.put(`${backendUrl}/api/user/addresses/${editingAddressId}`, addressData, { headers: { Authorization: `Bearer ${token}` } });
             } else {
-                res = await axios.post(`${backendUrl}/api/user/addresses`, addressData, { headers: { token } });
+                res = await axios.post(`${backendUrl}/api/user/addresses`, addressData, { headers: { Authorization: `Bearer ${token}` } });
             }
 
             if (res.data.success) {
@@ -133,7 +133,7 @@ const Profile = () => {
     const deleteAddress = async (id) => {
         if (!confirm('Are you sure you want to delete this address?')) return;
         try {
-            const res = await axios.delete(`${backendUrl}/api/user/addresses/${id}`, { headers: { token } });
+            const res = await axios.delete(`${backendUrl}/api/user/addresses/${id}`, { headers: { Authorization: `Bearer ${token}` } });
             if (res.data.success) {
                 toast.success(res.data.message);
                 setUser({ ...user, addresses: res.data.addresses });
@@ -148,7 +148,7 @@ const Profile = () => {
 
     const setDefaultAddress = async (id) => {
         try {
-            const res = await axios.put(`${backendUrl}/api/user/addresses/${id}/default`, {}, { headers: { token } });
+            const res = await axios.put(`${backendUrl}/api/user/addresses/${id}/default`, {}, { headers: { Authorization: `Bearer ${token}` } });
             if (res.data.success) {
                 toast.success(res.data.message);
                 setUser({ ...user, addresses: res.data.addresses });
@@ -210,39 +210,10 @@ const Profile = () => {
 
                     <hr className='border-gray-200' />
 
-                    {/* Change Password */}
+                    {/* Change Password (Disabled due to Firebase integration) */}
                     <div>
-                        <h3 className='text-xl font-medium mb-4'>Change Password</h3>
-                        <form onSubmit={changePassword} className='flex flex-col gap-4'>
-                            <input 
-                                required
-                                type='password' 
-                                value={passwordData.currentPassword} 
-                                onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})} 
-                                className='border border-gray-300 rounded py-2 px-3.5 w-full' 
-                                placeholder='Current Password'
-                            />
-                            <input 
-                                required
-                                minLength={8}
-                                type='password' 
-                                value={passwordData.newPassword} 
-                                onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})} 
-                                className='border border-gray-300 rounded py-2 px-3.5 w-full' 
-                                placeholder='New Password'
-                            />
-                            <input 
-                                required
-                                type='password' 
-                                value={passwordData.confirmPassword} 
-                                onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})} 
-                                className='border border-gray-300 rounded py-2 px-3.5 w-full' 
-                                placeholder='Confirm New Password'
-                            />
-                            <button disabled={isUpdatingPassword} type='submit' className='bg-black text-white px-8 py-2 text-sm self-start'>
-                                {isUpdatingPassword ? 'UPDATING...' : 'UPDATE PASSWORD'}
-                            </button>
-                        </form>
+                        <h3 className='text-xl font-medium mb-4 text-gray-400'>Change Password</h3>
+                        <p className='text-sm text-gray-500'>Password management is now handled via Firebase Authentication. If you need to reset your password, please use the "Forgot Password" link on the login page.</p>
                     </div>
                 </div>
 

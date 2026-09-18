@@ -11,38 +11,28 @@ const Login = () => {
   const [password, setPassword] = useState('')
   const [email, setEmail] = useState('')
   
-  //  prevent loading page
-  
   const onSubmitHandler = async (event) => {
     event.preventDefault();
     try {
+      // Lazy import Firebase to avoid blocking initial render if not used immediately
+      const { auth } = await import('../config/firebase.js');
+      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } = await import('firebase/auth');
       
-     if (currentState === 'Sign Up' ) {
-      
-      const response = await axios.post(backendUrl + '/api/user/register', {name, email, password})
-      if(response.data.success) {
-        setToken(response.data.token)
-        localStorage.setItem('token', response.data.token)
+      if (currentState === 'Sign Up' ) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
+        // The token will be automatically set by ShopContext's onAuthStateChanged listener
+        toast.success("Registration successful!");
       } else {
-        toast.error(response.data.message)
+        await signInWithEmailAndPassword(auth, email, password);
+        // The token will be automatically set by ShopContext's onAuthStateChanged listener
+        toast.success("Login successful!");
       }
-      
-     } else {
-      
-     const response = await axios.post(backendUrl + '/api/user/login', {email, password})
-     if(response.data.success) {
-      setToken(response.data.token)
-      localStorage.setItem('token', response.data.token)
-     } else {
-      toast.error(response.data.message)
-     }
-     
-
-     }
 
     } catch (error) {
       console.log(error);
-      toast.error(error.message)
+      // Handle Firebase specific error codes gracefully if needed, or just display message
+      toast.error(error.message.replace('Firebase: ', ''));
     }
   }
 

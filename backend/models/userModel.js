@@ -3,7 +3,8 @@ import mongoose from 'mongoose'
 const userSchema = mongoose.Schema({
     name: { type: String, required: true},
     email: { type: String, required: true, unique: true},
-    password: { type: String, required: true},
+    password: { type: String, required: false}, // Made optional for Firebase
+    firebaseUid: { type: String, required: false}, // Added for Firebase mapping
     cartData: { type: Object, default: {} },
     addresses: [{
         name: { type: String, required: true },
