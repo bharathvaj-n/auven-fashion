@@ -25,7 +25,32 @@ connectCloudinary()
 
 // Middleware
 app.use(express.json())
-app.use(cors())
+
+// CORS — allow Vercel production frontend + local dev
+const allowedOrigins = [
+    'https://auven-fashion.vercel.app',
+    'http://localhost:5173',  // frontend dev
+    'http://localhost:5174',  // admin dev
+    'http://localhost:4173',  // vite preview
+    process.env.CORS_ORIGIN,  // optional extra origin from env
+].filter(Boolean);
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (e.g. mobile apps, curl, Postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'token'],
+    credentials: true
+}))
+
+// Handle preflight for all routes
+app.options('*', cors())
 
 
 
