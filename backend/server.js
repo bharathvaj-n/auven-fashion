@@ -32,6 +32,7 @@ const allowedOrigins = [
     'https://auven-fashion-63a6.vercel.app',   // admin panel (production)
     'http://localhost:5173',  // frontend dev
     'http://localhost:5174',  // admin dev
+    'http://localhost:5175',  // frontend dev (alternate port)
     'http://localhost:4173',  // vite preview
     process.env.CORS_ORIGIN,  // optional extra origin from env
 ].filter(Boolean);

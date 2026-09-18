@@ -36,6 +36,21 @@ const Login = () => {
     }
   }
 
+  const handleResetPassword = async () => {
+    if (!email) {
+      toast.error("Please enter your email address first to reset your password.");
+      return;
+    }
+    try {
+      const { auth } = await import('../config/firebase.js');
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, email);
+      toast.success("Password reset email sent! Check your inbox.");
+    } catch (error) {
+      console.log(error);
+      toast.error(error.message.replace('Firebase: ', ''));
+    }
+  }
 
   useEffect(() => {
     if(token) {
@@ -54,7 +69,7 @@ const Login = () => {
        <input  onChange={(e) => setEmail(e.target.value)} value={email} type='email'  className='w-full px-3 py-2  border border-gray-800' placeholder='Email' required/>
        <input  onChange={(e) => setPassword(e.target.value)} value={password} type='password'  className='w-full px-3 py-2  border border-gray-800' placeholder='Password' required />
        <div className='w-full flex justify-between text-sm mt-[-8px]'>
-        <p className='cursor-pointer' >Forget Your Password?</p>
+        <p onClick={handleResetPassword} className='cursor-pointer' >Forget Your Password?</p>
         {
           currentState === 'Login' 
           ? <p onClick={() => setCurrentState('Sign Up')}  className='cursor-pointer' >Create Account</p>
