@@ -23,10 +23,12 @@ const Login = () => {
         await updateProfile(userCredential.user, { displayName: name });
         // The token will be automatically set by ShopContext's onAuthStateChanged listener
         toast.success("Registration successful!");
+        navigate('/');
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         // The token will be automatically set by ShopContext's onAuthStateChanged listener
         toast.success("Login successful!");
+        navigate('/');
       }
 
     } catch (error) {
