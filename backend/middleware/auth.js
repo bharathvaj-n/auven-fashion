@@ -1,4 +1,4 @@
-import admin from '../config/firebaseAdmin.js';
+import { getAuth } from '../config/firebaseAdmin.js';
 import userModel from '../models/userModel.js';
 
 const authUser = async (req, res, next) => {
@@ -16,7 +16,7 @@ const authUser = async (req, res, next) => {
 
    try {
        // Verify Firebase ID token
-       const decodedToken = await admin.auth().verifyIdToken(token);
+       const decodedToken = await getAuth().verifyIdToken(token);
        
        if (typeof req.body !== 'object' || req.body === null) {
            req.body = {};
