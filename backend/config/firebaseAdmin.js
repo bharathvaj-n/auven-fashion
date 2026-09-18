@@ -5,6 +5,10 @@ dotenv.config({override: true});
 // Make sure to parse the private key properly if it contains escaped newlines
 let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 if (privateKey) {
+  // Strip surrounding quotes if the user accidentally included them in Render/env
+  if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+    privateKey = privateKey.slice(1, -1);
+  }
   privateKey = privateKey.replace(/\\n/g, '\n');
 }
 
